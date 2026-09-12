@@ -1,0 +1,27 @@
+{
+  "name": "labs-email-flow-automation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CreatED Labs 2026 — Google Sheets → SendGrid email automation",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "once:ingest": "node scripts/run-once.js ingest",
+    "once:status": "node scripts/run-once.js status",
+    "mark-existing": "node scripts/mark-existing.js",
+    "doctor": "node scripts/doctor.js",
+    "preview": "node scripts/preview.js",
+    "test": "node scripts/test-columns.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "dotenv": "^16.4.7",
+    "googleapis": "^180.0.0",
+    "node-cron": "^4.6.0"
+  }
+}
