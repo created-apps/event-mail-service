@@ -107,7 +107,12 @@ missing WhatsApp link) and the row is retried automatically; `email_error` is cl
 ## Deploying
 
 Any always-on Node host works (Render, Railway, a VM with systemd/pm2). Set `PORT` to expose
-`GET /healthz` for uptime checks. Ticks never overlap — a slow run causes the next one to skip
+`GET /healthz` for uptime checks.
+
+**Railway:** [railway.toml](railway.toml) is checked in — one replica, `npm start`, restart on
+failure, no replica overlap during deploys. Set the secrets as service variables (they are
+listed in the file's footer); don't commit them. Start with `DRY_RUN=true`, watch the deploy
+logs for a few ticks, then flip it to `false`. Ticks never overlap — a slow run causes the next one to skip
 rather than double-send. If the process restarts mid-tick, at worst a row whose email was sent
 but whose stamp wasn't written gets re-sent; the write-back failure is logged loudly.
 

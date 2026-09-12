@@ -1,0 +1,42 @@
+# Railway deployment config — https://docs.railway.com/reference/config-as-code
+#
+# This service is a long-running cron worker, not a web app. It needs exactly one
+# always-on instance; two replicas against the same sheet would double-send email.
+
+[build]
+builder = "NIXPACKS"
+# Only redeploy when code changes — README/preview edits shouldn't bounce the worker.
+watchPatterns = ["src/**", "scripts/**", "package.json", "package-lock.json", "railway.toml"]
+
+[deploy]
+startCommand = "npm start"
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+# Never run two instances at once mid-deploy: stop the old one before starting the new.
+overlapSeconds = 0
+
+# Health checks are optional. To enable them, set a PORT variable on the service
+# (the app only opens its HTTP server when PORT is present) and uncomment:
+# healthcheckPath = "/healthz"
+# healthcheckTimeout = 30
+
+# ---------------------------------------------------------------------------
+# Variables to set in the Railway dashboard (Service -> Variables), not here —
+# these are secrets and must not live in the repo:
+#
+#   GOOGLE_CREDENTIALS_BASE64   base64 of the service-account JSON key
+#   SPREADSHEET_ID
+#   SHEET_NAME                  default "Form Responses 1"
+#   SENDGRID_API_KEY
+#   FROM_EMAIL / FROM_NAME / REPLY_TO
+#   BOOKING_LINK                ideation call link (enrollment email)
+#   CONSULTATION_LINK           follow-up link (rejection email)
+#   CRON_TIMEZONE               Asia/Kolkata
+#   DRY_RUN                     start with "true", flip to "false" once verified
+#   MAX_EMAILS_PER_TICK         default 25
+#
+# Before the first non-dry run, stamp existing rows so the back catalogue isn't
+# emailed — from the Railway shell or locally against the same sheet:
+#   npm run mark-existing -- --apply
+# ---------------------------------------------------------------------------
