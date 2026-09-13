@@ -29,7 +29,6 @@ export function sheetsClient() {
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   _sheets = google.sheets({ version: 'v4', auth });
-  _sheets.__serviceAccountEmail = creds.client_email;
   return _sheets;
 }
 
@@ -73,6 +72,12 @@ export function normalizeHeader(s) {
     .toLowerCase();
 }
 
+/** A1 range for the configured sheet, with the tab name safely quoted. */
+function a1(ref) {
+  const tab = `'${config.google.sheetName.replace(/'/g, "''")}'`;
+  return ref ? `${tab}!${ref}` : tab;
+}
+
 export function columnLetter(index0) {
   let n = index0 + 1;
   let out = '';
@@ -82,6 +87,53 @@ export function columnLetter(index0) {
     n = Math.floor((n - 1) / 26);
   }
   return out;
+}
+
+/** Properties of the configured tab (sheetId is needed for structural edits). */
+async function sheetProperties() {
+  const sheets = sheetsClient();
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: config.google.spreadsheetId,
+    fields: 'sheets(properties(sheetId,title,gridProperties(columnCount)))',
+  });
+  const found = (res.data.sheets || []).find(
+    (s) => s.properties?.title === config.google.sheetName
+  );
+  if (!found) {
+    const titles = (res.data.sheets || []).map((s) => s.properties?.title).join(', ');
+    throw new Error(
+      `No tab named "${config.google.sheetName}" in the spreadsheet. Tabs present: ${titles}`
+    );
+  }
+  return found.properties;
+}
+
+/**
+ * A sheet only has as many columns as its grid was created with (Google Forms
+ * sizes it to the question count). Writing past the last column is rejected with
+ * "exceeds grid limits", so grow the grid first.
+ */
+async function ensureColumnCount(needed) {
+  const props = await sheetProperties();
+  const have = props.gridProperties?.columnCount ?? 0;
+  if (have >= needed) return;
+
+  const sheets = sheetsClient();
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: config.google.spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          appendDimension: {
+            sheetId: props.sheetId,
+            dimension: 'COLUMNS',
+            length: needed - have,
+          },
+        },
+      ],
+    },
+  });
+  console.log(`[sheets] widened "${props.title}" from ${have} to ${needed} columns`);
 }
 
 /**
@@ -122,13 +174,16 @@ export async function resolveColumns(header) {
   }
 
   if (toCreate.length && !config.dryRun) {
+    // nextFree is now one past the last column we plan to write.
+    await ensureColumnCount(nextFree);
+
     const sheets = sheetsClient();
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: config.google.spreadsheetId,
       requestBody: {
         valueInputOption: 'RAW',
         data: toCreate.map(({ name, index }) => ({
-          range: `${config.google.sheetName}!${columnLetter(index)}1`,
+          range: a1(`${columnLetter(index)}1`),
           values: [[name]],
         })),
       },
@@ -149,7 +204,7 @@ export async function readRows() {
   const sheets = sheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: config.google.spreadsheetId,
-    range: config.google.sheetName,
+    range: a1(),
     valueRenderOption: 'UNFORMATTED_VALUE',
     dateTimeRenderOption: 'FORMATTED_STRING',
   });
@@ -193,7 +248,7 @@ export async function writeCells(columns, updates) {
     requestBody: {
       valueInputOption: 'RAW',
       data: updates.map((u) => ({
-        range: `${config.google.sheetName}!${columnLetter(columns[u.field])}${u.rowNumber}`,
+        range: a1(`${columnLetter(columns[u.field])}${u.rowNumber}`),
         values: [[u.value]],
       })),
     },
