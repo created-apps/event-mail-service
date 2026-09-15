@@ -24,6 +24,60 @@ function shell(bodyHtml) {
 </body></html>`;
 }
 
+/* Branded shell — used for the acceptance and enrollment emails only. The
+   acknowledgement and rejection keep the plain shell above. */
+
+function brandShell(bodyHtml) {
+  return `<!doctype html>
+<html><body style="margin:0;padding:0;background:#f6f6f4;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f6f4;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr><td style="background:#111111;padding:32px;">
+          <span style="font-size:34px;font-weight:700;letter-spacing:-0.5px;color:#ffffff;">Creat<span style="color:#ffd400;">ED</span></span>
+        </td></tr>
+        <!-- Outlook ignores linear-gradient and falls back to the solid yellow. -->
+        <tr><td style="height:6px;line-height:6px;font-size:0;background:#ffd400;background-image:linear-gradient(90deg,#ffd400 0%,#9ccb3b 45%,#2d7ff9 100%);">&nbsp;</td></tr>
+        <tr><td style="padding:32px;font-size:16px;line-height:1.7;color:#1f2328;">
+          ${bodyHtml}
+          <p style="margin:28px 0 0;color:#6b7280;font-size:13px;">
+            CreatED &middot; <a href="mailto:labs@create-ed.in" style="color:#6b7280;">labs@create-ed.in</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+/** Small blue all-caps heading that introduces a block. */
+const SECTION = (t) =>
+  `<div style="color:#2d7ff9;font-size:13px;font-weight:700;letter-spacing:1.5px;margin:24px 0 12px;">${esc(
+    String(t).toUpperCase()
+  )}</div>`;
+
+/** Dark "transfer information" card. rows: [[label, value], ...] */
+function transferCard(rows) {
+  const cells = rows
+    .map(([label, value], i) => {
+      const divider = i ? 'border-top:1px solid rgba(255,255,255,0.14);' : '';
+      const pad = i ? 'padding:13px 0;' : 'padding:0 0 13px;';
+      return `
+        <tr>
+          <td style="${pad}${divider}color:#9a9a9a;font-size:14px;">${esc(label)}</td>
+          <td align="right" style="${pad}${divider}color:#ffffff;font-size:15px;font-weight:700;">${esc(value)}</td>
+        </tr>`;
+    })
+    .join('');
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111111;border-radius:12px;margin:0 0 18px;">
+    <tr><td style="padding:24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cells}
+      </table>
+    </td></tr>
+  </table>`;
+}
+
 const P = (t) => `<p style="margin:0 0 14px;">${t}</p>`;
 const LI = (t) => `<li style="margin:0 0 8px;">${t}</li>`;
 const UL = (items) =>
@@ -95,7 +149,7 @@ export function selected({ name }) {
   const subject = 'Congratulations! You’ve been selected for the CreatED Labs 2026!';
   const form = config.links.parentForm;
 
-  const html = shell(
+  const html = brandShell(
     P(`Dear ${esc(name)},`) +
       P('Congratulations! 🎉') +
       P(
@@ -110,9 +164,12 @@ export function selected({ name }) {
         LI('<strong>Individual:</strong> ₹5,00,000 + GST = ₹5,90,000'),
         LI('<strong>Team of 2:</strong> ₹3,00,000 + GST = ₹3,54,000 (per student)'),
       ]) +
-      P(
-        '<strong>Bank Details:</strong><br>Account Name: CREATED<br>Account no. 020902000003805<br>IFSC: IOBA0000209'
-      ) +
+      SECTION('Bank Details') +
+      transferCard([
+        ['Account Name', 'CREATED'],
+        ['Account no.', '020902000003805'],
+        ['IFSC', 'IOBA0000209'],
+      ]) +
       P(
         'Once we receive and verify your payment, we will confirm your enrollment and send you the next steps for getting started.'
       ) +
@@ -163,7 +220,7 @@ export function enrolled({ name, whatsappGroupLink }) {
   const form = config.links.parentForm;
   const booking = config.links.booking;
 
-  const html = shell(
+  const html = brandShell(
     P(`Dear ${esc(name)},`) +
       P('Welcome to the CreatED Labs Cohort of 2026! 🎉') +
       P('We’ve received your payment and are pleased to confirm your enrollment in the upcoming cohort.') +
